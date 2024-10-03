@@ -30,15 +30,11 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 const unsigned int ARRAY_LIMIT = 400;
 
-static float src_height = SCR_HEIGHT;
-static float src_width = SCR_WIDTH;
-
-#define SCR_HEIGHT_DIFF SCR_HEIGHT / src_height
-#define SCR_WIDTH_DIFF SCR_WIDTH / src_width
+static float scr_height = SCR_HEIGHT;
+static float scr_width = SCR_WIDTH;
 
 // float offset = 0.0;
 static float scroll_offset = 0.0f;
-static bool ControlMod = 0;
 
 
 /// Holds all state information relevant to a character as loaded using FreeType
@@ -176,7 +172,7 @@ int main()
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 
-    for (int i = 0; i < ARRAY_LIMIT; i++) {
+    for (unsigned int i = 0; i < ARRAY_LIMIT; i++) {
         letterMap.push_back(0);
         transforms.push_back(mat4(1.0f));
     }
@@ -221,7 +217,7 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT);
 
         RenderText(shader, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent sollicitudin est elit, a semper sem\nviverra venenatis. Morbi facilisis sollicitudin tortor non feugiat. Maecenas orci lorem, lobortis nec\nauctor vel, venenatis ac sem. Phasellus eu mauris viverra, efficitur lorem ut, tempor libero. Sed eu\nrisus et sem fermentum tincidunt. Curabitur semper semper dui ut tristique. Etiam mattis\ncondimentum quam non aliquet. Cras lacinia, tortor eget vulputate maximus, tortor est condimentum\nquam, eget convallis elit leo ut dui. Ut viverra fringilla nisl et dapibus.\n\nVivamus id sapien varius, luctus quam porttitor, tempor magna.Ut accumsan, lorem et suscipit\nscelerisque, lacus neque interdum ex, et maximus risus ligula vitae velit.In hac habitasse platea\ndictumst.Curabitur eleifend rutrum diam vel bibendum.Aliquam id dolor metus.Fusce molestie gravida\nmolestie.Fusce varius id leo non malesuada.Cras quis est eu quam luctus imperdiet.Quisque efficitur\nut lectus condimentum consequat.\n\nDonec eget diam venenatis enim placerat efficitur ac eget urna.Ut dictum, dui ut luctus ornare, velit\njusto tristique odio, ac pharetra augue purus sit amet urna.Etiam rutrum blandit metus.Pellentesque\ndapibus augue dolor, quis malesuada est suscipit a.Praesent faucibus augue a dolor consectetur, vitae\nvehicula ex aliquam.Praesent vitae odio mollis, ultricies augue in, interdum magna.Cras pretium purus\nvel ligula varius cursus.Proin blandit nec massa eget accumsan.Sed massa augue, finibus sed purus\nnon, cursus eleifend neque.Proin id tincidunt massa, id suscipit ante.\n\nCras aliquet augue eu tellus placerat ornare.Nam aliquam tempus augue, non tempus ex tempor a.\nPraesent placerat pretium faucibus.Suspendisse vestibulum mollis iaculis.Nulla facilisi.Sed non\nmalesuada massa, ut fermentum purus.Duis lobortis lobortis enim, sed maximus nisi pulvinar aliquet.\nSed viverra pulvinar velit sed porta.Aliquam a quam eu augue egestas ultrices.",
-            0.0f, 1040.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
+            0.0f, SCR_HEIGHT - 50.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -234,27 +230,20 @@ int main()
     return 0;
 }
 
-float verticalOffset = 0.0f;
-
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-      // verticalOffset += 10.0f;
-
-
-    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-  src_height = height;
-  src_width = width;
+  scr_height = height;
+  scr_width = width;
   glViewport(0, 0, width, height);
   // SCR_HEIGHT - height goes into the negatives, but it still works!
   projection = glm::ortho(0.0f, static_cast<float>(width), static_cast<float>(SCR_HEIGHT) - height + scroll_offset, static_cast<float>(SCR_HEIGHT) + scroll_offset);
@@ -332,18 +321,11 @@ void RenderText(Shader &shader, std::string text, float x, float y, float scale,
 }
 
 void processMouseScroll(float yoffset) {
-  // std::cout << "aaaa\n";
-  static float zoom = 0.0f;
-  // float scroll_offset = 0.0f;
+  scroll_offset += yoffset * 10.0f;
+  projection = glm::ortho(0.0f, scr_width, scroll_offset, scr_height + scroll_offset);
+  glob_shader->use();
 
-  if (ControlMod) {
-  } else {
-    scroll_offset += yoffset * 10.0f;
-    projection = glm::ortho(0.0f, src_width, scroll_offset, src_height + scroll_offset);
-    glob_shader->use();
-
-    glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-  }
+  glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 }
 
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
