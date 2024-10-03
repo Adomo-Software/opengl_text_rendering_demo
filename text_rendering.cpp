@@ -26,8 +26,8 @@ void TextRenderCall(int length, GLuint shader);
 using namespace glm;
 using namespace std;
 // settings
-const unsigned int SCR_WIDTH = 1920;
-const unsigned int SCR_HEIGHT = 1080;
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
 const unsigned int ARRAY_LIMIT = 400;
 
 static float src_height = SCR_HEIGHT;
@@ -97,7 +97,7 @@ int main()
     // ----------------------------
     Shader shader("text.vs", "text.fs");
     glob_shader = &shader;
-    // projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+    projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
 
     shader.use();
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -226,8 +226,8 @@ int main()
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
-        // glfwWaitEvents();
-        glfwPollEvents();
+        glfwWaitEvents();
+        // glfwPollEvents();
     }
 
     glfwTerminate();
@@ -255,11 +255,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
   src_height = height;
   src_width = width;
-    glViewport(0, 0, width, height);
-    projection = glm::ortho(0.0f, static_cast<float>(width), static_cast<float>(SCR_HEIGHT - height) + scroll_offset, static_cast<float>(SCR_HEIGHT) + scroll_offset);
-    glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+  glViewport(0, 0, width, height);
+  // SCR_HEIGHT - height goes into the negatives, but it still works!
+  projection = glm::ortho(0.0f, static_cast<float>(width), static_cast<float>(SCR_HEIGHT) - height + scroll_offset, static_cast<float>(SCR_HEIGHT) + scroll_offset);
+  glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+  glob_shader->use();
 
-    glob_shader->use();
 }
 
 
@@ -339,10 +340,9 @@ void processMouseScroll(float yoffset) {
   } else {
     scroll_offset += yoffset * 10.0f;
     projection = glm::ortho(0.0f, src_width, scroll_offset, src_height + scroll_offset);
+    glob_shader->use();
+
     glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-
-
-    // zoom = 0.0f;
   }
 }
 
