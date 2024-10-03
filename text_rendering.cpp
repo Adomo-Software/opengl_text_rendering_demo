@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <glad/glad.h>
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
@@ -13,13 +13,15 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include <learnopengl/filesystem.h>
-#include <learnopengl/shader.h>
+#include "learnopengl/shader.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
+void processMouseScroll(float yoffset);
 void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color);
 void TextRenderCall(int length, GLuint shader);
+
 
 using namespace glm;
 using namespace std;
@@ -27,6 +29,17 @@ using namespace std;
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 const unsigned int ARRAY_LIMIT = 400;
+
+static float src_height = SCR_HEIGHT;
+static float src_width = SCR_WIDTH;
+
+#define SCR_HEIGHT_DIFF SCR_HEIGHT / src_height
+#define SCR_WIDTH_DIFF SCR_WIDTH / src_width
+
+// float offset = 0.0;
+static float scroll_offset = 0.0f;
+static bool ControlMod = 0;
+
 
 /// Holds all state information relevant to a character as loaded using FreeType
 struct Character {
@@ -42,13 +55,16 @@ GLuint textureArray;
 vector<mat4> transforms;
 vector<int> letterMap;
 
+Shader* glob_shader = nullptr;
+glm::mat4 projection;
+
 int main()
 {
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #ifdef __APPLE__
@@ -66,25 +82,23 @@ int main()
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-        return -1;
-    }
-    
+
+		glewInit();
+
     // OpenGL state
     // ------------
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
+
     // compile and setup the shader
     // ----------------------------
     Shader shader("text.vs", "text.fs");
-    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+    glob_shader = &shader;
+    // projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+
     shader.use();
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
@@ -99,13 +113,13 @@ int main()
     }
 
 	// find path to font
-    std::string font_name = FileSystem::getPath("resources/fonts/Antonio-Bold.ttf");
+    std::string font_name = "Antonio-Regular.ttf";
     if (font_name.empty())
     {
         std::cout << "ERROR::FREETYPE: Failed to load font_name" << std::endl;
         return -1;
     }
-	
+
 	// load font as face
     FT_Face face;
     if (FT_New_Face(ft, font_name.c_str(), 0, &face)) {
@@ -127,7 +141,7 @@ int main()
         // load first 128 characters of ASCII set
         for (unsigned char c = 0; c < 128; c++)
         {
-            // Load character glyph 
+            // Load character glyph
             if (FT_Load_Char(face, c, FT_LOAD_RENDER))
             {
                 std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
@@ -174,7 +188,7 @@ int main()
         1.0f,1.0f,
         1.0f,0.0f,
     };
-    
+
     // configure VAO/VBO for texture quads
     // -----------------------------------
     glGenVertexArrays(1, &VAO);
@@ -195,6 +209,12 @@ int main()
         // -----
         processInput(window);
 
+        // projection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f);
+        // projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+        // shader.use();
+        // glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+
         // render
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -202,10 +222,11 @@ int main()
 
         RenderText(shader, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent sollicitudin est elit, a semper sem\nviverra venenatis. Morbi facilisis sollicitudin tortor non feugiat. Maecenas orci lorem, lobortis nec\nauctor vel, venenatis ac sem. Phasellus eu mauris viverra, efficitur lorem ut, tempor libero. Sed eu\nrisus et sem fermentum tincidunt. Curabitur semper semper dui ut tristique. Etiam mattis\ncondimentum quam non aliquet. Cras lacinia, tortor eget vulputate maximus, tortor est condimentum\nquam, eget convallis elit leo ut dui. Ut viverra fringilla nisl et dapibus.\n\nVivamus id sapien varius, luctus quam porttitor, tempor magna.Ut accumsan, lorem et suscipit\nscelerisque, lacus neque interdum ex, et maximus risus ligula vitae velit.In hac habitasse platea\ndictumst.Curabitur eleifend rutrum diam vel bibendum.Aliquam id dolor metus.Fusce molestie gravida\nmolestie.Fusce varius id leo non malesuada.Cras quis est eu quam luctus imperdiet.Quisque efficitur\nut lectus condimentum consequat.\n\nDonec eget diam venenatis enim placerat efficitur ac eget urna.Ut dictum, dui ut luctus ornare, velit\njusto tristique odio, ac pharetra augue purus sit amet urna.Etiam rutrum blandit metus.Pellentesque\ndapibus augue dolor, quis malesuada est suscipit a.Praesent faucibus augue a dolor consectetur, vitae\nvehicula ex aliquam.Praesent vitae odio mollis, ultricies augue in, interdum magna.Cras pretium purus\nvel ligula varius cursus.Proin blandit nec massa eget accumsan.Sed massa augue, finibus sed purus\nnon, cursus eleifend neque.Proin id tincidunt massa, id suscipit ante.\n\nCras aliquet augue eu tellus placerat ornare.Nam aliquam tempus augue, non tempus ex tempor a.\nPraesent placerat pretium faucibus.Suspendisse vestibulum mollis iaculis.Nulla facilisi.Sed non\nmalesuada massa, ut fermentum purus.Duis lobortis lobortis enim, sed maximus nisi pulvinar aliquet.\nSed viverra pulvinar velit sed porta.Aliquam a quam eu augue egestas ultrices.",
             0.0f, 1040.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
-       
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
+        // glfwWaitEvents();
         glfwPollEvents();
     }
 
@@ -213,21 +234,32 @@ int main()
     return 0;
 }
 
+float verticalOffset = 0.0f;
+
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+      // verticalOffset += 10.0f;
+
+
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
+  src_height = height;
+  src_width = width;
     glViewport(0, 0, width, height);
+    projection = glm::ortho(0.0f, static_cast<float>(width), static_cast<float>(SCR_HEIGHT - height) + scroll_offset, static_cast<float>(SCR_HEIGHT) + scroll_offset);
+    glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+    glob_shader->use();
 }
 
 
@@ -235,7 +267,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // -------------------
 void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color)
 {
-    // activate corresponding render state	
+    // activate corresponding render state
     scale = scale * 48.0f / 256.0f;
     float copyX = x;
     shader.use();
@@ -296,6 +328,26 @@ void RenderText(Shader &shader, std::string text, float x, float y, float scale,
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+}
+
+void processMouseScroll(float yoffset) {
+  // std::cout << "aaaa\n";
+  static float zoom = 0.0f;
+  // float scroll_offset = 0.0f;
+
+  if (ControlMod) {
+  } else {
+    scroll_offset += yoffset * 10.0f;
+    projection = glm::ortho(0.0f, src_width, scroll_offset, src_height + scroll_offset);
+    glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+
+    // zoom = 0.0f;
+  }
+}
+
+void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
+  processMouseScroll(static_cast<float>(yoffset));
 }
 
 void TextRenderCall(int length, GLuint shader) {
