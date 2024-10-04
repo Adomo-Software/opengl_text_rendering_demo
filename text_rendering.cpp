@@ -35,6 +35,7 @@ static float scr_width = SCR_WIDTH;
 
 // float offset = 0.0;
 static float scroll_offset = 0.0f;
+static float scr_diff;
 
 
 /// Holds all state information relevant to a character as loaded using FreeType
@@ -246,10 +247,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
   scr_width = width;
   glViewport(0, 0, width, height);
   // SCR_HEIGHT - height goes into the negatives, but it still works!
-  projection = glm::ortho(0.0f, static_cast<float>(width), static_cast<float>(SCR_HEIGHT) - height + scroll_offset, static_cast<float>(SCR_HEIGHT) + scroll_offset);
+  scr_diff = static_cast<float>(SCR_HEIGHT) - height;
+  projection = glm::ortho(0.0f, static_cast<float>(width), scr_diff + scroll_offset, static_cast<float>(SCR_HEIGHT) + scroll_offset);
   glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-  glob_shader->use();
+  // scroll_offset+= static_cast<float>(SCR_HEIGHT) - height;
 
+  glob_shader->use();
 }
 
 
@@ -322,7 +325,7 @@ void RenderText(Shader &shader, std::string text, float x, float y, float scale,
 
 void processMouseScroll(float yoffset) {
   scroll_offset += yoffset * 10.0f;
-  projection = glm::ortho(0.0f, scr_width, scroll_offset, scr_height + scroll_offset);
+  projection = glm::ortho(0.0f, scr_width, scroll_offset + scr_diff, scr_height + scroll_offset + scr_diff);
   glob_shader->use();
 
   glUniformMatrix4fv(glGetUniformLocation(glob_shader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
